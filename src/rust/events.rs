@@ -123,58 +123,52 @@ impl RegularViewEventModel {
         log_str(format!("{}, {}", self._memo_touch_startX, self._memo_touch_startY).as_str());
     }
 
-    // pub fn _on_dblclick(&mut self, event: MouseEvent) {
-    //     let event_target: HtmlElement = event.target().unwrap().unchecked_into::<HtmlElement>();
-    //     let is_resize = event_target.class_list().contains("pd-column-resize");
-        
-    //     // hmm...
-    //     let mut element: HtmlElement = event_target;
-    //     while element.tag_name() != "TD" && element.tag_name() != "TH" {
-    //         match element.parent_element() {
-    //             Some(elem) => {
-    //                 let node: &Node = elem.as_ref();
-    //                 if !self.virtual_view_model.element.contains(Some(node)) {
-    //                     return;
-    //                 }
+    pub fn _on_dblclick(&mut self, event: MouseEvent, view_model: &HtmlElement) -> Option<HtmlElement> {
+        let mut element: HtmlElement = event.target().unwrap().dyn_into::<HtmlElement>().expect("HTML element");
 
-    //                 element = elem.dyn_into::<HtmlElement>().expect("HTML element");
-    //             }
-    //             None => return,
-    //         }
-    //     }
+        while element.tag_name() != "TD" && element.tag_name() != "TH" {
+            match element.parent_element() {
+                Some(elem) => {
+                    let node: &Node = elem.as_ref();
+                    if !view_model.contains(Some(node)) {
+                        return None;
+                    }
 
-    //     if is_resize {
-    //         // TODO: await new Promise(setTimeout)
-    //         // delete this._column_sizes.override[metadata.size_key];
-    //         // delete this._column_sizes.auto[metadata.size_key];
-    //         // delete this._column_sizes.indices[metadata.size_key];
-    //         let style = element.style();
-    //         style.set_property("min-width", "").unwrap();
-    //         style.set_property("max-width", "").unwrap();
-    //     }
+                    element = elem.dyn_into::<HtmlElement>().expect("HTML element");
+                }
+                None => return None
+            }
+        }
 
-    // }
+        return Some(element);
 
-    // pub fn _on_click(&mut self, event: MouseEvent) {
-    //     if event.button() == 0 {
-    //         // bubble up to the actual table element we click on, not whatever
-    //         // is inside it.
-    //         let mut element: HtmlElement = event.target().unwrap().dyn_into::<HtmlElement>().expect("HTML element");
-    //         while element.tag_name() != "TD" && element.tag_name() != "TH" {
-    //             match element.parent_element() {
-    //                 Some(elem) => {
-    //                     let node: &Node = elem.as_ref();
-    //                     if !self.virtual_view_model.element.contains(Some(node)) {
-    //                         return;
-    //                     }
+    }
 
-    //                     element = elem.dyn_into::<HtmlElement>().expect("HTML element");
-    //                 }
-    //                 None => return,
-    //             }
-    //         }
-    //     }
-    // }
+    pub fn _on_click(&mut self, event: MouseEvent, view_model: &HtmlElement) -> Option<HtmlElement> {
+        if event.button() == 0 {
+            // bubble up to the actual table element we click on, not whatever
+            // is inside it.
+            let mut element: HtmlElement = event.target().unwrap().dyn_into::<HtmlElement>().expect("HTML element");
+
+            while element.tag_name() != "TD" && element.tag_name() != "TH" {
+                match element.parent_element() {
+                    Some(elem) => {
+                        let node: &Node = elem.as_ref();
+                        if !view_model.contains(Some(node)) {
+                            return None;
+                        }
+
+                        element = elem.dyn_into::<HtmlElement>().expect("HTML element");
+                    }
+                    None => return None
+                }
+            }
+
+            return Some(element);
+        }
+
+        None
+    }
 
     // pub fn _on_resize_column(&mut self, event: MouseEvent, element: HtmlElement, metadata: MetaData) {
     //     let start = event.page_x();

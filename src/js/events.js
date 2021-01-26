@@ -39,6 +39,8 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
      * @memberof RegularViewModel
      */
     async _on_scroll(event) {
+        // event.stopPropagation();
+        // event.returnValue = false;
         this.rust_event_model._on_scroll(event);
         await this.draw({invalid_viewport: false});
         this.dispatchEvent(new CustomEvent("regular-table-scroll"));
@@ -79,6 +81,17 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
         if (this.rust_event_model._on_mousewheel(event, this, this._virtual_panel)) {
             this._on_scroll(event);
         }
+
+        // const {clientWidth, clientHeight, scrollTop, scrollLeft, scrollHeight} = this;
+        // if ((event.deltaY > 0 && scrollTop + clientHeight < scrollHeight) || (event.deltaY < 0 && scrollTop > 0) || event.deltaY === 0) {
+        //     event.preventDefault();
+        //     event.returnValue = false;
+        //     const total_scroll_height = Math.max(1, this._virtual_panel.offsetHeight - clientHeight);
+        //     const total_scroll_width = Math.max(1, this._virtual_panel.offsetWidth - clientWidth);
+        //     this.scrollTop = Math.min(total_scroll_height, scrollTop + event.deltaY);
+        //     this.scrollLeft = Math.min(total_scroll_width, scrollLeft + event.deltaX);
+        //     this._on_scroll(event);
+        // }
     }
 
     /**
@@ -97,6 +110,15 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
         }
         this.rust_event_model._on_touchmove(event, this, this._virtual_panel);
         this._on_scroll(event);
+
+        // event.preventDefault();
+        // event.returnValue = false;
+        // const {clientWidth, clientHeight, scrollTop, scrollLeft} = this;
+        // const total_scroll_height = Math.max(1, this._virtual_panel.offsetHeight - clientHeight);
+        // const total_scroll_width = Math.max(1, this._virtual_panel.offsetWidth - clientWidth);
+        // this.scrollTop = Math.min(total_scroll_height, scrollTop + (this._memo_touch_startY - event.touches[0].screenY));
+        // this.scrollLeft = Math.min(total_scroll_width, scrollLeft + (this._memo_touch_startX - event.touches[0].screenX));
+        // this._on_scroll(event);
     }
 
     /**
@@ -108,6 +130,9 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
      */
     _on_touchstart(event) {
         this.rust_event_model._on_touchstart(event);
+
+        // this._memo_touch_startY = event.touches[0].screenY;
+        // this._memo_touch_startX = event.touches[0].screenX;
     }
 
     /**
@@ -118,33 +143,38 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
      * @memberof RegularVirtualTableViewModel
      */
     async _on_dblclick(event) {
-        let element = event.target;
-        while (element.tagName !== "TD" && element.tagName !== "TH") {
-            element = element.parentElement;
-            if (!this.contains(element)) {
-                return;
+        let element = this.rust_event_model._on_dblclick(event, this);
+
+        // let element = event.target;
+        // while (element.tagName !== "TD" && element.tagName !== "TH") {
+        //     element = element.parentElement;
+        //     if (!this.contains(element)) {
+        //         return;
+        //     }
+        // }
+
+        if (element) {
+            const is_resize = event.target.classList.contains("pd-column-resize");
+            const metadata = METADATA_MAP.get(element);
+            if (is_resize) {
+                await new Promise(setTimeout);
+                delete this._column_sizes.override[metadata.size_key];
+                delete this._column_sizes.auto[metadata.size_key];
+                delete this._column_sizes.indices[metadata.size_key];
+                element.style.minWidth = "";
+                element.style.maxWidth = "";
+                // TODO fix
+                // for (const row of this.table_model.body.cells) {
+                //     const td = row[metadata._virtual_x];
+                //     if (!td) {
+                //         continue;
+                //     }
+                //     td.style.minWidth = "";
+                //     td.style.maxWidth = "";
+                //     td.classList.remove("pd-cell-clip");
+                // }
+                await this.draw();
             }
-        }
-        const is_resize = event.target.classList.contains("pd-column-resize");
-        const metadata = METADATA_MAP.get(element);
-        if (is_resize) {
-            await new Promise(setTimeout);
-            delete this._column_sizes.override[metadata.size_key];
-            delete this._column_sizes.auto[metadata.size_key];
-            delete this._column_sizes.indices[metadata.size_key];
-            element.style.minWidth = "";
-            element.style.maxWidth = "";
-            // TODO fix
-            // for (const row of this.table_model.body.cells) {
-            //     const td = row[metadata._virtual_x];
-            //     if (!td) {
-            //         continue;
-            //     }
-            //     td.style.minWidth = "";
-            //     td.style.maxWidth = "";
-            //     td.classList.remove("pd-cell-clip");
-            // }
-            await this.draw();
         }
     }
 
@@ -157,23 +187,33 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
      * @memberof RegularVirtualTableViewModel
      */
     async _on_click(event) {
-        if (event.button !== 0) {
-            return;
-        }
+        const element = this.rust_event_model._on_click(event, this);
 
-        let element = event.target;
-        while (element.tagName !== "TD" && element.tagName !== "TH") {
-            element = element.parentElement;
-            if (!this.contains(element)) {
-                return;
+        if (element) {
+            const is_resize = event.target.classList.contains("pd-column-resize");
+            const metadata = METADATA_MAP.get(element);
+            if (is_resize) {
+                this._on_resize_column(event, element, metadata);
             }
         }
 
-        const is_resize = event.target.classList.contains("pd-column-resize");
-        const metadata = METADATA_MAP.get(element);
-        if (is_resize) {
-            this._on_resize_column(event, element, metadata);
-        }
+        // if (event.button !== 0) {
+        //     return;
+        // }
+
+        // let element = event.target;
+        // while (element.tagName !== "TD" && element.tagName !== "TH") {
+        //     element = element.parentElement;
+        //     if (!this.contains(element)) {
+        //         return;
+        //     }
+        // }
+
+        // const is_resize = event.target.classList.contains("pd-column-resize");
+        // const metadata = METADATA_MAP.get(element);
+        // if (is_resize) {
+        //     this._on_resize_column(event, element, metadata);
+        // }
     }
 
     /**
