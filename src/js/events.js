@@ -39,8 +39,7 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
      * @memberof RegularViewModel
      */
     async _on_scroll(event) {
-        event.stopPropagation();
-        event.returnValue = false;
+        this.rust_event_model._on_scroll(event);
         await this.draw({invalid_viewport: false});
         this.dispatchEvent(new CustomEvent("regular-table-scroll"));
     }
@@ -96,13 +95,7 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
         if (this._virtual_scrolling_disabled) {
             return;
         }
-        event.preventDefault();
-        event.returnValue = false;
-        const {clientWidth, clientHeight, scrollTop, scrollLeft} = this;
-        const total_scroll_height = Math.max(1, this._virtual_panel.offsetHeight - clientHeight);
-        const total_scroll_width = Math.max(1, this._virtual_panel.offsetWidth - clientWidth);
-        this.scrollTop = Math.min(total_scroll_height, scrollTop + (this._memo_touch_startY - event.touches[0].screenY));
-        this.scrollLeft = Math.min(total_scroll_width, scrollLeft + (this._memo_touch_startX - event.touches[0].screenX));
+        this.rust_event_model._on_touchmove(event, this, this._virtual_panel);
         this._on_scroll(event);
     }
 
@@ -114,8 +107,7 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
      * @memberof RegularViewEventModel
      */
     _on_touchstart(event) {
-        this._memo_touch_startY = event.touches[0].screenY;
-        this._memo_touch_startX = event.touches[0].screenX;
+        this.rust_event_model._on_touchstart(event);
     }
 
     /**

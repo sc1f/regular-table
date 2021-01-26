@@ -23,26 +23,29 @@ use crate::scroll_panel::RegularVirtualTableViewModel;
 #[wasm_bindgen]
 pub struct RegularViewEventModel {
     // virtual_view_model: RegularVirtualTableViewModel,
-    // _memo_touch_startY: i32,
-    // _memo_touch_startX: i32,
+    _memo_touch_startY: i32,
+    _memo_touch_startX: i32,
 }
 
 #[wasm_bindgen]
 impl RegularViewEventModel {
     #[wasm_bindgen(constructor)]
     pub fn new() -> RegularViewEventModel {
-        RegularViewEventModel {}
+        RegularViewEventModel {
+            _memo_touch_startX: 0,
+            _memo_touch_startY: 0
+        }
     }
 
-    // pub fn _on_scroll(&mut self, event: WheelEvent) {
-    //     event.stop_propagation();
-    //     Reflect::set(
-    //         &event,
-    //         js_intern!("returnValue"),
-    //         &JsValue::from_bool(false),
-    //     )
-    //     .unwrap();
-    // }
+    pub fn _on_scroll(&mut self, event: WheelEvent) {
+        event.stop_propagation();
+        Reflect::set(
+            &event,
+            js_intern!("returnValue"),
+            &JsValue::from_bool(false),
+        )
+        .unwrap();
+    }
 
     pub fn _on_mousewheel(&mut self, event: WheelEvent, view_model: &HtmlElement, virtual_panel: &HtmlElement) -> bool {
         let client_width = view_model.client_width();
@@ -87,22 +90,38 @@ impl RegularViewEventModel {
         false
     }
 
-    // pub fn _on_touchmove(&mut self, event: Event) {
-    //     event.prevent_default();
-    //     Reflect::set(
-    //         &event,
-    //         js_intern!("returnValue"),
-    //         &JsValue::from_bool(false),
-    //     )
-    //     .unwrap();
-    // }
+    pub fn _on_touchmove(&mut self, event: TouchEvent, view_model: &HtmlElement, virtual_panel: &HtmlElement) {
+        event.prevent_default();
+        Reflect::set(
+            &event,
+            js_intern!("returnValue"),
+            &JsValue::from_bool(false),
+        )
+        .unwrap();
 
-    // pub fn _on_touchstart(&mut self, event: TouchEvent) {
-    //     let touches = event.touches();
-    //     let touch = touches.item(0).expect("Expected touch");
-    //     self._memo_touch_startY = touch.screen_y();
-    //     self._memo_touch_startX = touch.screen_x();
-    // }
+        let client_width = view_model.client_width();
+        let client_height = view_model.client_height();
+        let scroll_top = view_model.scroll_top();
+        let scroll_left = view_model.scroll_left();
+
+        let total_scroll_height = max(1, virtual_panel.offset_height() - client_height);
+        let total_scroll_width = max(1, virtual_panel.offset_width() - client_width);
+
+        let touches = event.touches();
+        let touch = touches.item(0).expect("Expected touch");
+
+        view_model.set_scroll_top(min(total_scroll_height, scroll_top + (self._memo_touch_startY - touch.screen_y())));
+        view_model.set_scroll_left(min(total_scroll_width, scroll_left + (self._memo_touch_startX - touch.screen_x())));
+    }
+
+    pub fn _on_touchstart(&mut self, event: TouchEvent) {
+        let touches = event.touches();
+        let touch = touches.item(0).expect("Expected touch");
+        self._memo_touch_startY = touch.screen_y();
+        self._memo_touch_startX = touch.screen_x();
+
+        log_str(format!("{}, {}", self._memo_touch_startX, self._memo_touch_startY).as_str());
+    }
 
     // pub fn _on_dblclick(&mut self, event: MouseEvent) {
     //     let event_target: HtmlElement = event.target().unwrap().unchecked_into::<HtmlElement>();
