@@ -10,6 +10,7 @@
 
 import {METADATA_MAP} from "./constants";
 import {RegularVirtualTableViewModel} from "./scroll_panel";
+import {RegularViewEventModel as RustRegularViewEventModel} from "../../pkg";
 import {throttlePromise} from "./utils";
 
 /**
@@ -19,6 +20,11 @@ import {throttlePromise} from "./utils";
  * @extends {RegularVirtualTableViewModel}
  */
 export class RegularViewEventModel extends RegularVirtualTableViewModel {
+    constructor(...args) {
+        super(...args);
+        this.rust_event_model = new RustRegularViewEventModel();
+    }
+
     register_listeners() {
         this.addEventListener("mousedown", this._on_click.bind(this));
         this.addEventListener("dblclick", this._on_dblclick.bind(this));
@@ -70,14 +76,8 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
         if (this._virtual_scrolling_disabled) {
             return;
         }
-        const {clientWidth, clientHeight, scrollTop, scrollLeft, scrollHeight} = this;
-        if ((event.deltaY > 0 && scrollTop + clientHeight < scrollHeight) || (event.deltaY < 0 && scrollTop > 0) || event.deltaY === 0) {
-            event.preventDefault();
-            event.returnValue = false;
-            const total_scroll_height = Math.max(1, this._virtual_panel.offsetHeight - clientHeight);
-            const total_scroll_width = Math.max(1, this._virtual_panel.offsetWidth - clientWidth);
-            this.scrollTop = Math.min(total_scroll_height, scrollTop + event.deltaY);
-            this.scrollLeft = Math.min(total_scroll_width, scrollLeft + event.deltaX);
+
+        if (this.rust_event_model._on_mousewheel(event, this, this._virtual_panel)) {
             this._on_scroll(event);
         }
     }
