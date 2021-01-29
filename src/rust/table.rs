@@ -7,7 +7,8 @@
  * file.
  *
  */
-// use crate::constants::*;
+
+use crate::constants::*;
 use std::cmp::max;
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
@@ -70,61 +71,60 @@ impl RegularTableViewModel {
         element.set_inner_html("<table cellspacing=\"0\"><thead></thead><tbody></tbody></table>");
     }
 
-    pub fn autosize_cells(&mut self, last_cells: js_sys::Array) {
+    /// Calculate amendments to auto size from this render pass.
+    ///
+    /// # Arguments
+    ///
+    /// * `last_cells` - the last (bottom) element in every column, used to
+    ///   read column dimensions.
+    pub fn autosize_cells(&mut self, last_cells: js_sys::Array) -> Result<(), JsValue> {
         while last_cells.length() > 0 {
-            let item: js_sys::Array = js_sys::Array::from(&last_cells.pop());
-            let cell: HtmlElement = item.get(0).into();
-            let metadata: js_sys::Object = item.get(1).into();
+            let (cell, metadata) = {
+                let item = js_sys::Array::from(&last_cells.pop());
+                (item.get(0).dyn_into::<web_sys::HtmlElement>()?, item.get(1).dyn_into::<js_sys::Object>()?)
+            };
 
-            let style = web_sys::window().expect("no window").get_computed_style(&cell).expect("must have style").expect("must have style"); // lol
-
-            let mut offset_width: f64 = 0.0;
-
-            match style.get_property_value("boxSizing").ok() {
-                Some(value) => {
-                    if value != "border-box" {
-                        offset_width = cell.client_width() as f64;
-                        offset_width -= style
-                            .get_property_value("paddingLeft")
-                            .ok()
-                            .unwrap_or(String::from("0")) // lol
-                            .parse::<f64>()
-                            .unwrap_or(0.0);
-                        offset_width -= style.get_property_value("paddingRight").ok().unwrap_or(String::from("0")).parse::<f64>().unwrap_or(0.0);
-                    } else {
-                        offset_width = cell.offset_width() as f64;
-                    }
+            let style = web_sys::window().unwrap().get_computed_style(&cell).unwrap().unwrap(); // lol
+            let offset_width: f64 = match style.get_property_value("box-sizing").ok() {
+                Some(value) if value != "border-box" => {
+                    let padding_left = style.get_property_value("padding-left")?.parse().unwrap_or(0.0);
+                    let padding_right = style.get_property_value("padding-right")?.parse().unwrap_or(0.0);
+                    (cell.client_width() as f64) - padding_left - padding_right
                 }
-                None => offset_width = cell.offset_width() as f64,
-            }
+                _ => cell.offset_width() as f64,
+            };
 
-            match Reflect::get(&self._column_sizes, js_intern!("row_height")).ok() {
-                Some(value) => Reflect::set(&self._column_sizes, js_intern!("row_height"), &value),
-                None => Reflect::set(&self._column_sizes, js_intern!("row_height"), &JsValue::from(cell.offset_height())),
-            }
-            .expect("set row_height");
-
-            let size_key = Reflect::get(&metadata, js_intern!("size_key")).ok().expect("size_key");
-            Reflect::set(&self._column_sizes, &size_key, &JsValue::from_f64(offset_width)).expect("set size_key");
-
-            let _override: js_sys::Object = Reflect::get(&self._column_sizes, js_intern!("override")).ok().unwrap().into();
-            let is_override = _override.has_own_property(&size_key);
-
-            if offset_width != 0.0 && is_override {
-                let auto = Reflect::get(&self._column_sizes, js_intern!("auto")).ok().expect("column_sizes.auto");
-                Reflect::set(&auto, &size_key, &JsValue::from_f64(offset_width)).unwrap();
-            }
-
-            match cell.style().get_property_value("minWidth").ok() {
-                Some(w) => {
-                    if w == "0px" {
-                        let width = format!("{}px", offset_width);
-                        cell.style().set_property("minWidth", width.as_str()).unwrap();
-                    }
+            Reflect::set(&self._column_sizes, js_intern!("row_height"), &{
+                let _val = Reflect::get(&self._column_sizes, js_intern!("row_height"))?;
+                if _val.is_undefined() {
+                    JsValue::from(cell.offset_height())
+                } else {
+                    _val
                 }
-                None => {}
+            })?;
+
+            let _size_key = Reflect::get(&metadata, js_intern!("size_key"))?;
+            let _indices = &Reflect::get(&self._column_sizes, js_intern!("indices"))?;
+            Reflect::set(_indices, &_size_key, &JsValue::from_f64(offset_width))?;
+            let is_override = {
+                let _override = Reflect::get(&self._column_sizes, js_intern!("override"))?.dyn_into::<js_sys::Object>()?;
+                _override.has_own_property(&_size_key)
+            };
+
+            if offset_width != 0.0 && !is_override {
+                let auto = Reflect::get(&self._column_sizes, js_intern!("auto"))?;
+                Reflect::set(&auto, &_size_key, &JsValue::from_f64(offset_width))?;
+            }
+
+            match cell.style().get_property_value("min-width").ok() {
+                Some(x) if x == "0px" => {
+                    let width = format!("{}px", offset_width);
+                    cell.style().set_property("min-width", &width)?;
+                }
+                _ => {}
             };
         }
+        Ok(())
     }
 
     pub fn draw(
